@@ -5,6 +5,7 @@ public class Torrent {
     private String status;
     private int progress;
     private String magnetUri;
+    private String infoHash;
 
     public Torrent(String magnetUri) {
         this.magnetUri = magnetUri;
@@ -39,5 +40,13 @@ public class Torrent {
 
     public String getMagnetUri() {
         return magnetUri;
+    }
+
+    public String getInfoHash() {
+        return infoHash;
+    }
+
+    public void setInfoHash(String infoHash) {
+        this.infoHash = infoHash;
     }
 }

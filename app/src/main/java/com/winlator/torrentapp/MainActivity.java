@@ -16,23 +16,20 @@ import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.github.se_bastiaan.torrentstream.StreamStatus;
+import com.github.se_bastiaan.torrentstream.TorrentOptions;
+import com.github.se_bastiaan.torrentstream.TorrentStream;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
-import com.frostwire.jlibtorrent.SessionManager;
-import com.frostwire.jlibtorrent.alerts.Alert;
-import com.frostwire.jlibtorrent.alerts.AlertType;
-import com.frostwire.jlibtorrent.alerts.BlockFinishedAlert;
-import com.frostwire.jlibtorrent.alerts.TorrentAddedAlert;
-import com.frostwire.jlibtorrent.alerts.TorrentFinishedAlert;
 
 import java.io.File;
 import java.util.ArrayList;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements com.github.se_bastiaan.torrentstream.listeners.TorrentListener {
 
     private static final int REQUEST_PERMISSIONS = 1;
     private TorrentAdapter adapter;
     private ArrayList<Torrent> torrents = new ArrayList<>();
-    private SessionManager sessionManager;
+    private TorrentStream torrentStream;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -71,62 +68,19 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void startTorrentSession() {
-        sessionManager = new SessionManager() {
-            @Override
-            public void onAlert(Alert<?> alert) {
-                super.onAlert(alert);
-                AlertType type = alert.type();
-                switch (type) {
-                    case TORRENT_ADDED:
-                        TorrentAddedAlert ta = (TorrentAddedAlert) alert;
-                        ta.handle().resume();
-                        runOnUiThread(() -> {
-                            for (Torrent t : torrents) {
-                                if (ta.handle().infoHash().toString().equals(t.getMagnetUri())) {
-                                    t.setName(ta.handle().torrentFile().name());
-                                    adapter.notifyDataSetChanged();
-                                    break;
-                                }
-                            }
-                        });
-                        break;
-                    case BLOCK_FINISHED:
-                        BlockFinishedAlert bf = (BlockFinishedAlert) alert;
-                        float progress = bf.handle().status().progress() * 100;
-                        runOnUiThread(() -> {
-                            for (Torrent t : torrents) {
-                                if (bf.handle().infoHash().toString().equals(t.getMagnetUri())) {
-                                    t.setProgress((int) progress);
-                                    t.setStatus("Downloading");
-                                    adapter.notifyDataSetChanged();
-                                    break;
-                                }
-                            }
-                        });
-                        break;
-                    case TORRENT_FINISHED:
-                        TorrentFinishedAlert tf = (TorrentFinishedAlert) alert;
-                        runOnUiThread(() -> {
-                            for (Torrent t : torrents) {
-                                if (tf.handle().infoHash().toString().equals(t.getMagnetUri())) {
-                                    t.setStatus("Finished");
-                                    t.setProgress(100);
-                                    adapter.notifyDataSetChanged();
-                                    break;
-                                }
-                            }
-                        });
-                        break;
-                }
-            }
-        };
-        sessionManager.start();
+        TorrentOptions torrentOptions = new TorrentOptions.Builder()
+                .saveLocation(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS))
+                .removeFilesAfterStop(true)
+                .build();
+
+        torrentStream = TorrentStream.init(torrentOptions);
+        torrentStream.addListener(this);
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        sessionManager.stop();
+        torrentStream.stopStream();
     }
 
     private void showAddTorrentDialog() {
@@ -143,7 +97,7 @@ public class MainActivity extends AppCompatActivity {
                 Torrent torrent = new Torrent(torrentLink);
                 torrents.add(torrent);
                 adapter.notifyDataSetChanged();
-                startDownload(torrentLink);
+                torrentStream.startStream(torrentLink);
             }
         });
         builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
@@ -151,8 +105,49 @@ public class MainActivity extends AppCompatActivity {
         builder.show();
     }
 
-    private void startDownload(String torrentLink) {
-        File downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
-        sessionManager.download(torrentLink, downloadsDir);
+    @Override
+    public void onStreamStarted(com.github.se_bastiaan.torrentstream.Torrent torrent) {
+        runOnUiThread(() -> {
+            for (Torrent t : torrents) {
+                if (t.getMagnetUri().equals(torrent.getTorrentHandle().uri())) {
+                    t.setInfoHash(torrent.getTorrentHandle().infoHash().toString());
+                    t.setName(torrent.getName());
+                    t.setStatus("Downloading");
+                    adapter.notifyDataSetChanged();
+                    break;
+                }
+            }
+        });
+    }
+
+    @Override
+    public void onStreamError(com.github.se_bastiaan.torrentstream.Torrent torrent, Exception e) {
+        // Handle error
+    }
+
+    @Override
+    public void onStreamReady(com.github.se_bastiaan.torrentstream.Torrent torrent) {
+        // Handle stream ready
+    }
+
+    @Override
+    public void onStreamProgress(com.github.se_bastiaan.torrentstream.Torrent torrent, StreamStatus status) {
+        runOnUiThread(() -> {
+            for (Torrent t : torrents) {
+                if (torrent.getTorrentHandle().infoHash().toString().equals(t.getInfoHash())) {
+                    t.setProgress((int) status.progress);
+                    if (status.progress == 100) {
+                        t.setStatus("Finished");
+                    }
+                    adapter.notifyDataSetChanged();
+                    break;
+                }
+            }
+        });
+    }
+
+    @Override
+    public void onStreamStopped() {
+        // Handle stream stopped
     }
 }
