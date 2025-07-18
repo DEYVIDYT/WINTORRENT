@@ -109,8 +109,8 @@ public class MainActivity extends AppCompatActivity implements com.github.se_bas
     public void onStreamStarted(com.github.se_bastiaan.torrentstream.Torrent torrent) {
         runOnUiThread(() -> {
             for (Torrent t : torrents) {
-                if (t.getMagnetUri().equals(torrent.getTorrentHandle().uri())) {
-                    t.setInfoHash(torrent.getTorrentHandle().infoHash().toString());
+                if (t.getMagnetUri().equals(torrent.getUri())) {
+                    t.setInfoHash(torrent.getInfoHash());
                     t.setName(torrent.getName());
                     t.setStatus("Downloading");
                     adapter.notifyDataSetChanged();
@@ -134,7 +134,7 @@ public class MainActivity extends AppCompatActivity implements com.github.se_bas
     public void onStreamProgress(com.github.se_bastiaan.torrentstream.Torrent torrent, StreamStatus status) {
         runOnUiThread(() -> {
             for (Torrent t : torrents) {
-                if (torrent.getTorrentHandle().infoHash().toString().equals(t.getInfoHash())) {
+                if (torrent.getInfoHash().equals(t.getInfoHash())) {
                     t.setProgress((int) status.progress);
                     if (status.progress == 100) {
                         t.setStatus("Finished");
@@ -144,6 +144,11 @@ public class MainActivity extends AppCompatActivity implements com.github.se_bas
                 }
             }
         });
+    }
+
+    @Override
+    public void onStreamPrepared(com.github.se_bastiaan.torrentstream.Torrent torrent) {
+        // Handle stream prepared
     }
 
     @Override
