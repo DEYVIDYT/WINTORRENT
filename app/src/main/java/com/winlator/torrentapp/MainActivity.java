@@ -1,4 +1,4 @@
-package com.winlator.torrent_app;
+package com.winlator.torrentapp;
 
 import android.Manifest;
 import android.content.pm.PackageManager;

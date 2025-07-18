@@ -1,4 +1,4 @@
-package com.winlator.torrent_app;
+package com.winlator.torrentapp;
 
 public class Torrent {
     private String name;
